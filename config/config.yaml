@@ -1,1 +1,10 @@
-sample: "a"
+manifest: pedigree.tab
+READS:
+  ONT: /path/to/ont/{sample}.bam
+  HIFI: /path/to/hifi/{sample}.bam
+ASM:
+  HIFIASM: /path/to/hifiasm_aln/{sample}.bam
+SVPOP:
+  PBSV: /path/to/svpop/{sample}_int_{parent}/intersect.tab
+CALLABLE:
+  PAV: /path/to/callable_bed/{sample}_{hap}.bed
