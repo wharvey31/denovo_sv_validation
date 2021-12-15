@@ -1,4 +1,4 @@
-manifest: pedigree.tab
+manifest: config/pedigree.tab
 READS:
   ONT: /path/to/ont/{sample}.bam
   HIFI: /path/to/hifi/{sample}.bam

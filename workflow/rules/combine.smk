@@ -1,5 +1,10 @@
 
 
+
+
+
+
+
 rule minimize_input:
 	input:
 		file = 'temp/validation/{val_type}/{val_method}/{sample}_raw.tsv'
@@ -15,6 +20,7 @@ rule minimize_input:
 		elif val_method == 'CALLABLE':
 
 		else:
+
 			
 
 

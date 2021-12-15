@@ -21,6 +21,29 @@ ALIGN_SUMMARY_FIELD_DTYPE = {
 }
 
 
+SET_DEF = {
+    'indel20-50':
+        (20, 50, 5)
+    'sv50-100':
+        (50, 100, 20),
+    'sv100-200':
+        (100, 200, 25),
+    'sv200-500':
+        (200, 500, 40),
+    'sv500-1000':
+        (500, 1000, 100),
+    'sv1-2k':
+        (1000, 2000, 200),
+    'sv2-4k':
+        (2000, 4000, 250),
+    'sv4k-max':
+        (4000, None, 300),
+}
+
+def find_bed(wildcards):
+    return manifest_df.at[wildcards.sample, 'BED']
+
+
 #
 # StepMiner
 #
@@ -242,7 +265,6 @@ def get_lengths(fa_file):
     """
     Get a list of record lengths for one input file.
     """
-
     with gzip.open(fa_file, 'rt') as in_file:
         return [len(record.seq) for record in SeqIO.parse(in_file, 'fasta')]
 

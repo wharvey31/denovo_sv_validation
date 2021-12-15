@@ -13,9 +13,7 @@ import re
 # Definitions
 #
 
-samples_df = pd.read_csv(config["manifest"], sep="\t")
-
-samples = samples_df["sample"].tolist()
+samples_df = pd.read_csv(config.get("manifest", 'config/pedigree.tab'), sep="\t", indexcol='SAMPLE')
 
 include: 'rules/common.smk'
 include: 'rules/subseq.smk'
@@ -29,6 +27,6 @@ include: 'rules/combine.smk'
 
 rule all:
     input:
-        expand('dn_val/{sample}_valid_table.tsv', sample=samples)
+        expand('dn_val/{sample}_valid_table.tsv', sample=samples.index)
 
 
