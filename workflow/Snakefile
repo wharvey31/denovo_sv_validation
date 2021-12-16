@@ -8,17 +8,24 @@ import pandas as pd
 
 from Bio import SeqIO
 import re
+from pybedtools import BedTool
+
 
 #
 # Definitions
 #
 
-samples_df = pd.read_csv(config.get("manifest", 'config/pedigree.tab'), sep="\t", indexcol='SAMPLE')
+samples_df = pd.read_csv(
+    config.get("manifest", "config/pedigree.tab"), sep="\t", indexcol="SAMPLE"
+)
 
-include: 'rules/common.smk'
-include: 'rules/subseq.smk'
-include: 'rules/msa.smk'
-include: 'rules/combine.smk'
+
+include: "rules/common.smk"
+include: "rules/subseq.smk"
+include: "rules/msa.smk"
+include: "rules/callable.smk"
+include: "rules/combine.smk"
+
 
 # SET_DEF_NAME = os.path.basename(os.getcwd())
 
@@ -27,6 +34,4 @@ include: 'rules/combine.smk'
 
 rule all:
     input:
-        expand('dn_val/{sample}_valid_table.tsv', sample=samples.index)
-
-
+        expand("dn_val/{sample}_valid_table.tsv", sample=samples.index),
