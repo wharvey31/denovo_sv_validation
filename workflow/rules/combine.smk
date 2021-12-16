@@ -11,10 +11,12 @@ rule minimize_input:
 	resources:
 		mem = 16,
 		hrs = 12
-	# run:
+	run:
+		base_columns = ['']
 	# 	if val_type == 'SVPOP':
 
-	# 	elif val_method == 'CALLABLE':
+		elif val_method == 'CALLABLE':
+
 
 	# 	else:
 

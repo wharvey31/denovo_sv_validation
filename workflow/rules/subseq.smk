@@ -11,7 +11,7 @@ rule subseq_table_setdef_bed:
     input:
         bed=find_bed,
     output:
-        bed="temp/tables/subseq/{sample}/{parent}_{seq}/{set_def}/setdef_{vartype}_{svtype}.bed.gz",
+        bed="temp/tables/subseq/{sample}/{parent}_{val_type}/{set_def}/setdef_{vartype}_{svtype}.bed.gz",
     run:
         # Get parameters
         if wildcards.set_def not in SET_DEF:
@@ -116,7 +116,7 @@ rule subseq_tab_window_single:
         ),
     output:
         tsv=temp(
-            "temp/tables/sample/{sample}/{source}_{caller}/{set_def}/sv_{svtype}/{alnsample}_{alnsource}.tsv.gz"
+            "temp/tables/sample/{sample}/{parent}_{val_type}/{set_def}/{vartype}_{svtype}/{parent}_{val_type}.tsv.gz"
         ),
     run:
         # Read BED
@@ -202,11 +202,11 @@ rule subseq_tab_window_single:
 rule subseq_merge_setdef:
     input:
         tsv=expand(
-            "temp/tables/sample/{{sample}}/{{source}}_{{caller}}/{set_def}/sv_{{svtype}}/{{alnsample}}_{{alnsource}}.tsv.gz",
+            "temp/tables/sample/{{sample}}/{{parent}}_{{val_type}}/{set_def}/{{vartype}}_{{svtype}}/{{parent}}_{{val_type}}.tsv.gz",
             set_def=SET_DEF.keys(),
         ),
     output:
-        tsv="temp/tables/subseq/{sample}/{source}_{caller}/sv_{svtype}/{alnsample}_{alnsource}.tsv.gz",
+        tsv="temp/tables/subseq/{sample}/{parent}_{val_type}/{vartype}_{svtype}/{parent}_{val_type}.tsv.gz",
     run:
         return pd.concat(
             [pd.read_csv(tsv_file_name, sep="\t") for tsv_file_name in input.tsv],
@@ -226,7 +226,7 @@ rule subseq_val:
     input:
         tsv=rules.subseq_merge_setdef.output.tsv,
     output:
-        tsv="temp/tables/validation/{sample}/{source}_{caller}/sv_{svtype}/{alnsample}_{alnsource}/{strategy}.tsv.gz",
+        tsv="temp/tables/validation/{sample}/{source}_{caller}/{vartype}_{svtype}/{alnsample}_{alnsource}/{strategy}.tsv.gz",
     run:
         # # Check alignsource generator function
         # if ALNSOURCE_PLOIDY_DICT[wildcards.alnsource] != subseqlib.stats.align_summary_diploid:
@@ -240,3 +240,7 @@ rule subseq_val:
 
         # Write
         df.to_csv(output.tsv, sep="\t", index=False, compression="gzip")
+
+
+
+rule 

@@ -16,7 +16,7 @@ if __name__ == "__main__":
     parental_cols = [
         x for x in df.columns if snakemake.wildcards.sample not in x and x != "ID"
     ]
-    sample_val = df[sample_cols].str.replace("VALID", True)
+    sample_val = df[sample_cols].str.replace("PASS", True)
     parent_val = df[parental_cols].str.replace("PASS", True)
     df.to_csv(snakemake.output.all_calls, sep="\t", index=False)
     sample_val["ID"].merge(parent_val["ID"]).to_csv(
