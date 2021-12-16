@@ -6,26 +6,24 @@ rule callable_bed:
         bed=find_callable,
         tab=find_calls,
     output:
-        tab="temp/CALLABLE/{parent}_{hap}.tab",
-    run:
-        df = pd.read_csv(input.tab, sep="\t")
-        call = Bedtool(input.bed)
-        regions = (
-            BedTool.from_dataframe(df[["#CHROM", "POS", "END", "ID"]])
-            .intersect(call, wa=True)
-            .to_dataframe(names=["#CHROM", "POS", "END", "ID"])
-        )
-        regions[f"CALLABLE_{wildcards.parent}_{wildcards.hap}"] = "VALID"
-        df = df.merge(regions, how="left")
-        df[f"CALLABLE_{wildcards.parent}_{wildcards.hap}"] = df[
-            f"CALLABLE_{wildcards.parent}_{wildcards.hap}"
-        ].fillna("NOTVALID")
-        df.to_csv(output.tab, sep="\t", index=False)
+        tab="temp/CALLABLE/{val_type}/{sample}_{parent}_{hap}.tab"
+    script:
+        "../scripts/callable_bed.py"
 
 
 rule combine_callable:
 	input:
-        
+        gather = gather_callable_haps
+    output:
+        raw = 'temp/validation/CALLABLE/{val_type}/{sample}_raw.tsv'
+    run:
+        for i, file in enumerate(input.gather):
+            if i == 0:
+                df = pd.read_csv(file, sep='\t')
+            else:
+                df = df.merge(pd.read_csv(file, sep='\t'))
+        df.to_csv(output.raw, sep='\t')
+
 
 
 # call_bed_h1 = '/net/eichler/vol27/projects/hprc/nobackups/svpop/hgsvc_hprc_merge/hg38/link_data/pav_raw/{sample}/callable/callable_regions_h1_500.bed.gz',

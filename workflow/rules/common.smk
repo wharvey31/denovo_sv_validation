@@ -344,3 +344,6 @@ def combine_fasta(wildcards):
 
 def find_region(wildcards):
     return manifest_df.at[wildcards.ids, "REGION"]
+
+def gather_callable_haps(wildcards):
+    return expand(rules.callable_bed.output.tab, sample=wildcards.sample, val_type=wildcards.val_type, hap=['hap1', 'hap2'], parents=[manifest_df.at[wildcards.sample, "MO"], manifest_df.at[wildcards.sample, "FA"]])
