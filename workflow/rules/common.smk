@@ -21,8 +21,7 @@ ALIGN_SUMMARY_FIELD_DTYPE = {
 }
 
 
-SET_DEF = {
-    "indel20-50": (20, 50, 5),
+SET_DEF_SV = {
     "sv50-100": (50, 100, 20),
     "sv100-200": (100, 200, 25),
     "sv200-500": (200, 500, 40),
@@ -32,6 +31,25 @@ SET_DEF = {
     "sv4k-max": (4000, None, 300),
 }
 
+SET_DEF_INDEL = {
+    "indel20-50": (20, 50, 5)
+}
+
+
+def gather_setdef(wildcards):
+    if wildcards.vartype == 'indel':
+        return expand(
+            "temp/tables/sample/{{sample}}/{{parent}}_{{val_type}}/{set_def}/{{vartype}}_{{svtype}}/{{parent}}_{{val_type}}.tsv.gz",
+            set_def=SET_DEF_INDEL.keys(),
+        )
+    else:
+         return expand(
+            "temp/tables/sample/{{sample}}/{{parent}}_{{val_type}}/{set_def}/{{vartype}}_{{svtype}}/{{parent}}_{{val_type}}.tsv.gz",
+            set_def=SET_DEF_SV.keys(),
+        )
+
+
+
 
 def find_bed(wildcards):
     return manifest_df.at[wildcards.sample, "BED"]
@@ -40,6 +58,17 @@ def find_bed(wildcards):
 #
 # StepMiner
 #
+
+
+def subseq_father(wildcards):
+    father = manifest_df.at[wildcards.sample, 'FA']
+    return expand("temp/tables/validation/{{sample}}/{parent}_{{val_type}}/{{vartype}}_{{svtype}}.tsv.gz", parent=father)
+
+
+def subseq_father(wildcards):
+    mother = manifest_df.at[wildcards.sample, 'MO']
+    return expand("temp/tables/validation/{{sample}}/{parent}_{{val_type}}/{{vartype}}_{{svtype}}.tsv.gz", parent=mother)
+
 
 
 def step_miner(len_list):
@@ -334,6 +363,8 @@ def determine_combined_set(wildcards):
 
 
 def combine_fasta(wildcards):
+    sample = wildcards.sample
+    
     return expand(
         rules.rename.output.clean,
         ids=wildcards.ids,
@@ -347,3 +378,11 @@ def find_region(wildcards):
 
 def gather_callable_haps(wildcards):
     return expand(rules.callable_bed.output.tab, sample=wildcards.sample, val_type=wildcards.val_type, hap=['hap1', 'hap2'], parents=[manifest_df.at[wildcards.sample, "MO"], manifest_df.at[wildcards.sample, "FA"]])
+
+
+def msa_parents(wildcards):
+    return expand(
+            "multialign/results/{{ids}}/{parent}_{hap}_gap.bed",
+            hap=["hap1", "hap2"],
+            sample=[mother, father],
+        ),

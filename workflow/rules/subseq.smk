@@ -201,10 +201,7 @@ rule subseq_tab_window_single:
 # Merge subseq results across set definitions (one table for variant callset vs one alignment source).
 rule subseq_merge_setdef:
     input:
-        tsv=expand(
-            "temp/tables/sample/{{sample}}/{{parent}}_{{val_type}}/{set_def}/{{vartype}}_{{svtype}}/{{parent}}_{{val_type}}.tsv.gz",
-            set_def=SET_DEF.keys(),
-        ),
+        tsv = gather_setdef
     output:
         tsv="temp/tables/subseq/{sample}/{parent}_{val_type}/{vartype}_{svtype}/{parent}_{val_type}.tsv.gz",
     run:
@@ -226,7 +223,7 @@ rule subseq_val:
     input:
         tsv=rules.subseq_merge_setdef.output.tsv,
     output:
-        tsv="temp/tables/validation/{sample}/{source}_{caller}/{vartype}_{svtype}/{alnsample}_{alnsource}/{strategy}.tsv.gz",
+        tsv="temp/tables/validation/{sample}/{parent}_{val_type}/{vartype}_{svtype}/{strategy}.tsv.gz",
     run:
         # # Check alignsource generator function
         # if ALNSOURCE_PLOIDY_DICT[wildcards.alnsource] != subseqlib.stats.align_summary_diploid:
@@ -243,4 +240,18 @@ rule subseq_val:
 
 
 
-rule 
+rule gather_parents:
+    input:
+        fa_val = subseq_father,
+        mo_val = subseq_mother
+    output:
+        subseq = 'temp/validation/SUBSEQ/{val_type}/{vartype}_{svtype}/{sample}_raw.tsv'
+    run:
+        df = pd.merge(pd.read_csv(input.fa_val, sep='\t'), pd.read_csv(input.mo_val, sep='\t'), on='ID', suffixes=[f'_{wildcards.val_type}_fa', f'_{wildcards.val_type}_mo'])
+        # Swap validation structure
+        for parent in ['mo', 'fa']:
+            df[f'VAL_{wildcards.val_type}_{parent}'] = df[f'VAL_{wildcards.val_type}_{parent}'].replace({'VALID' : 'NOTVALID', 'NOTVALID' : 'VALID'})
+        df.to_csv(output.subseq, sep='\t', index=False)
+
+
+

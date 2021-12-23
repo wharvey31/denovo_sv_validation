@@ -6,7 +6,7 @@ rule callable_bed:
         bed=find_callable,
         tab=find_calls,
     output:
-        tab="temp/CALLABLE/{val_type}/{sample}_{parent}_{hap}.tab"
+        tab="temp/CALLABLE/{val_type}/{vartype}_{svtype}/{sample}_{parent}_{hap}.tab"
     script:
         "../scripts/callable_bed.py"
 
@@ -15,7 +15,7 @@ rule combine_callable:
 	input:
         gather = gather_callable_haps
     output:
-        raw = 'temp/validation/CALLABLE/{val_type}/{sample}_raw.tsv'
+        raw = 'temp/validation/CALLABLE/{val_type}/{vartype}_{svtype}/{sample}_raw.tsv'
     run:
         for i, file in enumerate(input.gather):
             if i == 0:
