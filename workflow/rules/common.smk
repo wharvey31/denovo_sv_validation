@@ -31,9 +31,63 @@ SET_DEF_SV = {
     "sv4k-max": (4000, None, 300),
 }
 
+SET_DEF = {
+    "sv50-100": (50, 100, 20),
+    "sv100-200": (100, 200, 25),
+    "sv200-500": (200, 500, 40),
+    "sv500-1000": (500, 1000, 100),
+    "sv1-2k": (1000, 2000, 200),
+    "sv2-4k": (2000, 4000, 250),
+    "sv4k-max": (4000, None, 300),
+    "indel20-50": (20, 50, 5)
+}   
+
+
 SET_DEF_INDEL = {
     "indel20-50": (20, 50, 5)
 }
+
+def get_aln_source(wildcards, alnsource_pattern_dict):
+    """
+    Get an alignment source (BAM, CRAM) for a sample.
+    """
+    
+    if wildcards.val_type not in alnsource_pattern_dict:
+        raise RuntimeError('Cannot find alignment source "{}" in alignment source pattern dictionary'.format(wildcards.val_type))
+    
+    alnsource_pattern = alnsource_pattern_dict[wildcards.val_type]
+    
+    if '{sample}' not in alnsource_pattern:
+        raise RuntimeError('{{sample}} not in alignment source pattern: {}'.format(wildcards.val_type))
+    
+    return alnsource_pattern.format(sample=wildcards.parent)
+
+def get_variant_input(wildcards, bed_pattern, allow_missing=False):
+    """
+    Get an input file name if it exists.
+    """
+    
+    if '{source}' not in bed_pattern:
+        raise RuntimeError('{source} not in BED pattern')
+    
+    if '{caller}' not in bed_pattern:
+        raise RuntimeError('{caller} not in BED pattern')
+    
+    if '{sample}' not in bed_pattern:
+        raise RuntimeError('{sample} not in BED pattern')
+    
+    if '{svtype}' not in bed_pattern:
+        raise RuntimeError('{svtype} not in BED pattern')
+    
+    bed_file_name = bed_pattern.format(**wildcards)
+    
+    if not os.path.isfile(bed_file_name):
+        if allow_missing:
+            return []
+        
+        raise RuntimeError('Missing BED file: {}'.format(bed_file_name))
+    
+    return bed_file_name
 
 
 def gather_setdef(wildcards):
@@ -52,7 +106,7 @@ def gather_setdef(wildcards):
 
 
 def find_bed(wildcards):
-    return manifest_df.at[wildcards.sample, "BED"]
+    return samples_df.at[wildcards.sample, "BED"]
 
 
 #
@@ -61,13 +115,13 @@ def find_bed(wildcards):
 
 
 def subseq_father(wildcards):
-    father = manifest_df.at[wildcards.sample, 'FA']
-    return expand("temp/tables/validation/{{sample}}/{parent}_{{val_type}}/{{vartype}}_{{svtype}}.tsv.gz", parent=father)
+    father = samples_df.at[wildcards.sample, 'FA']
+    return expand("temp/tables/validation/{{sample}}/{parent}_{{val_type}}/{{vartype}}_{{svtype}}.tsv.gz", parent=father)[0]
 
 
-def subseq_father(wildcards):
-    mother = manifest_df.at[wildcards.sample, 'MO']
-    return expand("temp/tables/validation/{{sample}}/{parent}_{{val_type}}/{{vartype}}_{{svtype}}.tsv.gz", parent=mother)
+def subseq_mother(wildcards):
+    mother = samples_df.at[wildcards.sample, 'MO']
+    return expand("temp/tables/validation/{{sample}}/{parent}_{{val_type}}/{{vartype}}_{{svtype}}.tsv.gz", parent=mother)[0]
 
 
 
@@ -364,7 +418,7 @@ def determine_combined_set(wildcards):
 
 def combine_fasta(wildcards):
     sample = wildcards.sample
-    
+
     return expand(
         rules.rename.output.clean,
         ids=wildcards.ids,

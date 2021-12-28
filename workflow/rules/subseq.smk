@@ -32,7 +32,7 @@ rule subseq_table_setdef_bed:
                 usecols=("#CHROM", "POS", "END", "ID", "SVTYPE", "SVLEN"),
             )
 
-            df_fai = subseqlib.seq.get_ref_fai(REF_FA + ".fai")
+            df_fai = get_ref_fai(REF_FA + ".fai")
 
             # Filter chromosomes that were not aligned to (alt and decoys for short-read callers)
             df = df.loc[df["#CHROM"].apply(lambda val: val in df_fai.index)]
@@ -46,7 +46,7 @@ rule subseq_table_setdef_bed:
 
             # Add sample and caller
             df["SAMPLE"] = wildcards.sample
-            df["CALLER"] = wildcards.caller
+            df["CALLER"] = 'POTENTIAL_DENOVO'
 
             # Annotate window (replace POS and END with the window coordinates)
             df["WIN_FLANK"] = win_size
@@ -111,8 +111,8 @@ rule subseq_table_setdef_bed:
 rule subseq_tab_window_single:
     input:
         bed=rules.subseq_table_setdef_bed.output.bed,
-        aln=lambda wildcards: subseqlib.pipeline.get_aln_source(
-            wildcards, ALNSOURCE_PATTERN_DICT
+        aln=lambda wildcards: get_aln_source(
+            wildcards, config['READS']
         ),
     output:
         tsv=temp(
@@ -124,8 +124,8 @@ rule subseq_tab_window_single:
         # Read region BED
         region_bed = pd.read_csv(input.bed, sep="\t")
 
-        region_bed["ALNSAMPLE"] = wildcards.sample
-        region_bed["ALNSOURCE"] = wildcards.alnsource
+        region_bed["ALNSAMPLE"] = wildcards.parent
+        region_bed["ALNSOURCE"] = wildcards.val_type
 
         region_bed = region_bed.loc[
             :,
@@ -146,7 +146,7 @@ rule subseq_tab_window_single:
         aln_input_exists = os.path.isfile(input.aln)
 
         # Get summary function
-        summary_func = ALNSOURCE_PLOIDY_DICT[wildcards.alnsource]
+        summary_func = align_summary_diploid
 
         # Build a dict of stat records
 
@@ -155,7 +155,7 @@ rule subseq_tab_window_single:
             # Alignment file exists, get stats
 
             stat_list = [
-                summary_func(subseqlib.seq.get_len_list(window, input.aln, SUBSEQ_EXE))
+                summary_func(get_len_list(window, input.aln, 'subseqfa'))
                 for window in region_bed["WINDOW"]
             ]
 
@@ -178,7 +178,7 @@ rule subseq_tab_window_single:
         # Convert frame types
         dtype_dict = {
             field: dtype
-            for field, dtype in subseqlib.stats.ALIGN_SUMMARY_FIELD_DTYPE.items()
+            for field, dtype in ALIGN_SUMMARY_FIELD_DTYPE.items()
             if field in df.columns
         }
 
@@ -223,17 +223,22 @@ rule subseq_val:
     input:
         tsv=rules.subseq_merge_setdef.output.tsv,
     output:
-        tsv="temp/tables/validation/{sample}/{parent}_{val_type}/{vartype}_{svtype}/{strategy}.tsv.gz",
+        tsv="temp/tables/validation/{sample}/{parent}_{val_type}/{vartype}_{svtype}.tsv.gz",
     run:
         # # Check alignsource generator function
-        # if ALNSOURCE_PLOIDY_DICT[wildcards.alnsource] != subseqlib.stats.align_summary_diploid:
+        # if ALNSOURCE_PLOIDY_DICT[wildcards.alnsource] != align_summary_diploid:
         #     raise RuntimeError('Validation with size50 requires results from align_summary_diploid')
 
         # Read
         df = pd.read_csv(input.tsv, sep="\t")
+        
+        if wildcards.vartype == 'sv':
+            strategy = 'size50_2_4'
+        else:
+            strategy = 'size20_2_4'
 
         # Validate
-        df = subseqlib.validate.validate_summary(df, strategy=wildcards.strategy)
+        df = validate_summary(df, strategy=strategy)
 
         # Write
         df.to_csv(output.tsv, sep="\t", index=False, compression="gzip")
