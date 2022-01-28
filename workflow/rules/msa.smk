@@ -3,14 +3,17 @@
 
 rule extract_seq:
     input:
-        bam="{sample}_{hap}_sorted.bam",
+        bam = find_asm_aln,
     output:
-        fa="multialign/{ids}/{sample}_{hap}.out",
+        fa="temp/msa/{val_type}/{sample}/{ids}_{hap}.out",
     params:
-        region=find_region,
+        region=find_region
+    resources:
+        mem = 4,
+        hrs = 24
+    threads: 1
     shell:
         """
-        module load subseqfa/1.0
         subseqfa -r {params.region} {input.bam} > {output.fa}
         """
 
@@ -19,7 +22,11 @@ rule rename:
     input:
         fa=rules.extract_seq.output.fa,
     output:
-        clean="multialign/{ids}/{sample}_{hap}.out.fa",
+        clean="temp/msa/{val_type}/{sample}/{ids}_{hap}.out.fa"
+    resources:
+        mem = 4,
+        hrs = 24
+    threads: 1
     run:
         with open(output.clean, "w") as outfile:
             with open(input.fa, "r") as infile:
@@ -34,11 +41,18 @@ rule clustalo:
     input:
         fa=combine_fasta,
     output:
-        clust="multialign/results/{ids}/clustal.out",
+        clust="temp/msa/{val_type}/clustalo/{sample}/{ids}/clustal.out",
+    resources:
+        mem = 4,
+        hrs = 24
+    threads: 1
     shell:
         """
-        module load clustal/1.2.4
-        cat {input.fa} | clustalo -i - -o {output.clust}
+        if [[ $( grep ">" {input.fa} | wc -l ) < 2 ]]; then
+            touch {output.clust}
+        else
+            cat {input.fa} | clustalo -i - -o {output.clust}
+        fi
         """
 
 
@@ -46,17 +60,30 @@ rule process_align:
     input:
         clust=rules.clustalo.output.clust,
     output:
-        bed="multialign/results/{ids}/{sample}_{hap}_gap.bed",
+        bed="temp/msa/{val_type}/{ids}/{sample}_{hap}_gap.bed",
+    resources:
+        mem = 4,
+        hrs = 24
+    threads: 1
     run:
         record_dict = {}
         with open(input.clust) as handle:
             for record in SeqIO.parse(handle, "fasta"):
                 text = str(record.seq)
                 hap = record.id
-                if hap == f"{wildcards.sample}_{wildcards.hap}":
-                    for m in re.finditer("-", text):
-                        if hap not in record_dict:
-                            record_dict[hap] = pd.DataFrame.from_dict(
+                for m in re.finditer("-", text):
+                    if hap not in record_dict:
+                        record_dict[hap] = pd.DataFrame.from_dict(
+                            {
+                                "chr": [wildcards.ids],
+                                "start": [m.start()],
+                                "end": [m.end()],
+                                "hap": [hap],
+                            }
+                        )
+                    else:
+                        record_dict[hap] = record_dict[hap].append(
+                            pd.DataFrame.from_dict(
                                 {
                                     "chr": [wildcards.ids],
                                     "start": [m.start()],
@@ -64,17 +91,7 @@ rule process_align:
                                     "hap": [hap],
                                 }
                             )
-                        else:
-                            record_dict[hap] = record_dict[hap].append(
-                                pd.DataFrame.from_dict(
-                                    {
-                                        "chr": [wildcards.ids],
-                                        "start": [m.start()],
-                                        "end": [m.end()],
-                                        "hap": [hap],
-                                    }
-                                )
-                            )
+                        )
 
         out_df = pd.DataFrame()
         for record in record_dict:
@@ -92,22 +109,30 @@ rule process_align:
 
 rule check_hap:
     input:
-        hap="multialign/results/{ids}/{sample}_{hap}_gap.bed",
-        parents=msa_parents
+        hap="temp/msa/{val_type}/{ids}/{sample}_{hap}_gap.bed",
     output:
-        bed="multialign/results/{sample}_{ids}_{hap}.shared.bed",
+        bed="temp/msa/{val_type}/{ids}/{sample}_{hap}_shared.bed",
+    resources:
+        mem = 4,
+        hrs = 24
+    threads: 1
     run:
         try:
             df = pd.read_csv(input.hap, sep="\t")
         except:
-            df = pd.DataFrame(columns=["#CHROM", "POS", "END", "sample"])
+            df = pd.DataFrame(columns=["#chrom", "start", "end", "hap"])
 
-        a = BedTool(input.parents[0])
-        b = BedTool(input.parents[1])
-        c = BedTool(input.parents[2])
-        d = BedTool(input.parents[3])
+        df_hap = df.loc[df["hap"] == f'{wildcards.sample}_{wildcards.hap}'].copy()
 
-        par_bed = a.intersect(b).intersect(c).intersect(d)
+        df_parents = df.loc[df["hap"] != f'{wildcards.sample}_{wildcards.hap}'].copy()
+
+        par_bed = BedTool.from_dataframe(df_parents)
+
+        for i, sample in enumerate(df_parents['hap'].unique()):
+            if i == 0:
+                par_bed = BedTool.from_dataframe(df_parents.loc[df_parents['hap'] == sample])
+            else:
+                par_bed = par_bed.intersect(BedTool.from_dataframe(df_parents.loc[df_parents['hap'] == sample]))
 
         shared_ovl = (
             BedTool.from_dataframe(df)
@@ -121,19 +146,37 @@ rule check_hap:
         shared_ovl.to_csv(output.bed, sep="\t", index=False)
 
 
-rule overlap_self:
+rule combine_ids:
     input:
-        h1 = expand('multialign/results/{sample}_{{ids}}_{hap}.shared.bed', hap=['hap1']),
-        h2 = expand('multialign/results/{sample}_{{ids}}_{hap}.shared.bed', hap=['hap2']),
+        bed = find_ids,
+        all_bed = find_bed
     output:
-        val = '{sample}_val/{vartype}_{svtype}/{ids}.val'
+        val = "temp/msa/{val_type}/{sample}_raw.tsv"
+    resources:
+        mem = 4,
+        hrs = 24
+    threads: 1
     run:
-        # if len(BedTool.from_dataframe(pd.read_csv(input.h1, sep='\t')))
-        a = BedTool(input.bed)
-        # b = BedTool(input.bed)
-        df = a.intersect(b, wb=True).to_dataframe(header=None,names=['#ID', 'start_1', 'end_1', 'name_1', 'chr_2', 'start_2', 'end_2', 'name_2'])
-        # df = df.loc[(df['name_1'].str.contains('14455.p1')) & (~df['name_2'].str.contains('14455.p1'))].groupby(['name_1', 'name_2', 'chr_1']).count().reset_index()
-        df = df.loc[(df['name_1'].str.contains('14455.p1')) & (~df['name_2'].str.contains('14455.p1'))]
-        df['ovl'] = df['end_1'].astype(int) - df['start_1'].astype(int)
-        df[['ID', 'name_1', 'name_2', 'ovl', 'start_1', 'end_1']].to_csv(output.val, sep='\t', index=False)
-        # df
+        out_df = pd.DataFrame()
+        df = pd.concat( [pd.read_csv(file, sep='\t', header=0, names=['#CHROM', 'POS', 'END', 'sample', 'ovl']) for file in input.bed ] )
+        df = df.drop_duplicates().dropna()
+        df['SVLEN'] = df['#CHROM'].str.split('-', expand=True)[3].astype(int)
+        df['LEN_MATCH'] = df.apply(lambda row: 'YES' if row['SVLEN'] == row['ovl'] else 'NO', axis=1)
+        df = df.loc[df['LEN_MATCH'] == 'YES']
+        for svid in df['#CHROM'].unique():
+            sv_df = df.loc[df['#CHROM'] == svid]
+            dn_sample = [ x for x in [f'{wildcards.sample}_hap1', f'{wildcards.sample}_hap2'] if x not in sv_df['sample'].values ]
+            if len(dn_sample) == 1:
+                val_call = 'VALID'
+                val_sample = dn_sample[0]
+            else:
+                val_call = 'NOTVALID'
+                val_sample = ''
+            out_df = out_df.append(pd.DataFrame.from_dict({f'MSA_VAL_SAMPLE_{wildcards.val_type}' : [val_sample], f'MSA_VAL_{wildcards.val_type}' : [val_call], 'ID' : [svid] }))
+
+        bed_df = pd.read_csv(input.all_bed, sep='\t', usecols=['ID'])
+
+        out_df = out_df.merge(bed_df, how='outer')
+
+        out_df[['ID', f'MSA_VAL_{wildcards.val_type}', f'MSA_VAL_SAMPLE_{wildcards.val_type}']].to_csv(output.val, sep='\t', index=False)
+

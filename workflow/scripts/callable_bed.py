@@ -12,10 +12,15 @@ if __name__ == "__main__":
         .intersect(call, wa=True)
         .to_dataframe(names=["#CHROM", "POS", "END", "ID"])
     )
-    regions[f"CALLABLE_{snakemake.wildcards.parent}_{snakemake.wildcards.hap}"] = "VALID"
+    regions[
+        f"CALLABLE_{snakemake.wildcards.parent}_{snakemake.wildcards.hap}"
+    ] = "VALID"
     df = df.merge(regions, how="left")
-    df[f"CALLABLE_{snakemake.wildcards.callable_type}_{snakemake.wildcards.parent}_{snakemake.wildcards.hap}"] = df[
+    df[
         f"CALLABLE_{snakemake.wildcards.callable_type}_{snakemake.wildcards.parent}_{snakemake.wildcards.hap}"
-    ].fillna("NOTVALID")
+    ] = df[
+        f"CALLABLE_{snakemake.wildcards.callable_type}_{snakemake.wildcards.parent}_{snakemake.wildcards.hap}"
+    ].fillna(
+        "NOTVALID"
+    )
     df.to_csv(snakemake.output.tab, sep="\t", index=False)
-

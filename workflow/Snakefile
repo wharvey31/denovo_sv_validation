@@ -1,6 +1,4 @@
-"""
-Run subsequence validations. Per reference region, extract the number of bases from the aligned contig or assembly and quantify their length.
-"""
+
 
 import numpy as np
 import os
@@ -27,8 +25,9 @@ REF_FA = config['REF']
 
 include: "rules/common.smk"
 include: "rules/subseq.smk"
-# include: "rules/msa.smk"
+include: "rules/msa.smk"
 # include: "rules/callable.smk"
+# include: "rules/svpop_int.smk"
 # include: "rules/combine.smk"
 
 

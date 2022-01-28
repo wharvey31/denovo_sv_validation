@@ -4,7 +4,7 @@
 rule callable_bed:
     input:
         bed=find_callable,
-        tab=find_calls,
+        tab=find_calls
     output:
         tab="temp/CALLABLE/{val_type}/{vartype}_{svtype}/{sample}_{parent}_{hap}.tab"
     script:
@@ -13,11 +13,11 @@ rule callable_bed:
 
 rule combine_callable:
 	input:
-        gather = gather_callable_haps
+        all_haps = gather_callable_haps
     output:
         raw = 'temp/validation/CALLABLE/{val_type}/{vartype}_{svtype}/{sample}_raw.tsv'
     run:
-        for i, file in enumerate(input.gather):
+        for i, file in enumerate(input.all_haps):
             if i == 0:
                 df = pd.read_csv(file, sep='\t')
             else:

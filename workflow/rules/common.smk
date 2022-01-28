@@ -417,18 +417,26 @@ def determine_combined_set(wildcards):
 
 
 def combine_fasta(wildcards):
+    out_file = "temp/msa/{val_type}/{sample}/{ids}_{hap}.out.fa"
     sample = wildcards.sample
-
     return expand(
-        rules.rename.output.clean,
+        out_file,
         ids=wildcards.ids,
-        sample=["14455.p1", "14455.mo", "14455.fa"],
+        sample=[wildcards.sample, samples_df.at[wildcards.sample, 'MO'], samples_df.at[wildcards.sample, 'FA']],
+        val_type=[wildcards.val_type],
         hap=["hap1", "hap2"],
     )
 
 
 def find_region(wildcards):
-    return manifest_df.at[wildcards.ids, "REGION"]
+    split_id = wildcards.ids.split('-')
+    start = max(0, int(split_id[1])-1000)
+    if 'INS' in wildcards.ids:
+        end = int(split_id[1])+1001
+    else:
+        end = int(split_id[1])+int(split_id[3])+1000
+    return f'{split_id[0]}:{start}-{end}'
+
 
 def gather_callable_haps(wildcards):
     return expand(rules.callable_bed.output.tab, sample=wildcards.sample, val_type=wildcards.val_type, hap=['hap1', 'hap2'], parents=[manifest_df.at[wildcards.sample, "MO"], manifest_df.at[wildcards.sample, "FA"]])
@@ -436,7 +444,16 @@ def gather_callable_haps(wildcards):
 
 def msa_parents(wildcards):
     return expand(
-            "multialign/results/{{ids}}/{parent}_{hap}_gap.bed",
+            "temp/msa/{{val_type}}/{{ids}}/{parents}_{hap}_gap.bed",
             hap=["hap1", "hap2"],
-            sample=[mother, father],
-        ),
+            parents=[samples_df.at[wildcards.sample, 'MO'], samples_df.at[wildcards.sample, 'FA']],
+        )
+
+
+def find_ids(wildcards):
+    bed_df = pd.read_csv(samples_df.at[wildcards.sample, "BED"], sep='\t', index_col='ID')
+    return expand("temp/msa/{{val_type}}/{ids}/{{sample}}_{hap}_shared.bed", ids=bed_df.index, hap=['hap1', 'hap2'])
+
+
+def find_asm_aln(wildcards):
+    return config.get('ASM')[wildcards.val_type]
