@@ -25,4 +25,3 @@ The input bed file must have a header and be of the format:
 The output is a TSV with bed ID and a summary of the validation metrics for each step as well as a final validation call in column (VAL_DNSV)
 
 
-
