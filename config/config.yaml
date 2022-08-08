@@ -1,10 +1,11 @@
 manifest: config/pedigree.tab
+REF: /path/to/hg38.no_alt.fa
 READS:
-  ONT: /path/to/ont/{sample}.bam
-  HIFI: /path/to/hifi/{sample}.bam
+  ONT: /path/to/{sample}_ont.hg38.bam
+  HIFI: /path/to/{sample}/mapped_reads.bam
 ASM:
-  HIFIASM: /path/to/hifiasm_aln/{sample}.bam
+  HIFIASM: /path/to/{sample}_{hap}_sorted.bam
 SVPOP:
-  PBSV: /path/to/svpop/{sample}_int_{parent}/intersect.tab
+  PBSV: /path/to/intersect/caller+extern-pav+{sample}_vs_caller+pbsv-hifi+{parent}/all/lc/szro-50-200/sv_insdel/intersect.tab
 CALLABLE:
-  PAV: /path/to/callable_bed/{sample}_{hap}.bed
+  PAV: /path/to/results/{sample}/callable/callable_regions_{hap}_500.bed.gz

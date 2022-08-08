@@ -12,6 +12,10 @@ rule subseq_table_setdef_bed:
         bed=find_bed,
     output:
         bed="temp/tables/subseq/{sample}/{parent}_{val_type}/{set_def}/setdef_{vartype}_{svtype}.bed.gz",
+    resources:
+        mem=4,
+        hrs=24,
+    threads: 1
     run:
         # Get parameters
         if wildcards.set_def not in SET_DEF:
@@ -46,7 +50,7 @@ rule subseq_table_setdef_bed:
 
             # Add sample and caller
             df["SAMPLE"] = wildcards.sample
-            df["CALLER"] = 'POTENTIAL_DENOVO'
+            df["CALLER"] = "POTENTIAL_DENOVO"
 
             # Annotate window (replace POS and END with the window coordinates)
             df["WIN_FLANK"] = win_size
@@ -111,13 +115,15 @@ rule subseq_table_setdef_bed:
 rule subseq_tab_window_single:
     input:
         bed=rules.subseq_table_setdef_bed.output.bed,
-        aln=lambda wildcards: get_aln_source(
-            wildcards, config['READS']
-        ),
+        aln=lambda wildcards: get_aln_source(wildcards, config["READS"]),
     output:
         tsv=temp(
             "temp/tables/sample/{sample}/{parent}_{val_type}/{set_def}/{vartype}_{svtype}/{parent}_{val_type}.tsv.gz"
         ),
+    resources:
+        mem=4,
+        hrs=24,
+    threads: 1
     run:
         # Read BED
 
@@ -155,7 +161,7 @@ rule subseq_tab_window_single:
             # Alignment file exists, get stats
 
             stat_list = [
-                summary_func(get_len_list(window, input.aln, 'subseqfa'))
+                summary_func(get_len_list(window, input.aln, "subseqfa"))
                 for window in region_bed["WINDOW"]
             ]
 
@@ -201,9 +207,13 @@ rule subseq_tab_window_single:
 # Merge subseq results across set definitions (one table for variant callset vs one alignment source).
 rule subseq_merge_setdef:
     input:
-        tsv = gather_setdef
+        tsv=gather_setdef,
     output:
         tsv="temp/tables/subseq/{sample}/{parent}_{val_type}/{vartype}_{svtype}/{parent}_{val_type}.tsv.gz",
+    resources:
+        mem=4,
+        hrs=24,
+    threads: 1
     run:
         return pd.concat(
             [pd.read_csv(tsv_file_name, sep="\t") for tsv_file_name in input.tsv],
@@ -224,6 +234,10 @@ rule subseq_val:
         tsv=rules.subseq_merge_setdef.output.tsv,
     output:
         tsv="temp/tables/validation/{sample}/{parent}_{val_type}/{vartype}_{svtype}.tsv.gz",
+    resources:
+        mem=4,
+        hrs=24,
+    threads: 1
     run:
         # # Check alignsource generator function
         # if ALNSOURCE_PLOIDY_DICT[wildcards.alnsource] != align_summary_diploid:
@@ -231,11 +245,11 @@ rule subseq_val:
 
         # Read
         df = pd.read_csv(input.tsv, sep="\t")
-        
-        if wildcards.vartype == 'sv':
-            strategy = 'size50_2_4'
+
+        if wildcards.vartype == "sv":
+            strategy = "size50_2_4"
         else:
-            strategy = 'size20_2_4'
+            strategy = "size20_2_4"
 
         # Validate
         df = validate_summary(df, strategy=strategy)
@@ -244,19 +258,28 @@ rule subseq_val:
         df.to_csv(output.tsv, sep="\t", index=False, compression="gzip")
 
 
-
 rule gather_parents:
     input:
-        fa_val = subseq_father,
-        mo_val = subseq_mother
+        fa_val=subseq_father,
+        mo_val=subseq_mother,
     output:
-        subseq = 'temp/validation/SUBSEQ/{val_type}/{vartype}_{svtype}/{sample}_raw.tsv'
+        subseq="temp/validation/READS/{val_type}/{vartype}_{svtype}/{sample}_raw.tsv",
+    resources:
+        mem=4,
+        hrs=24,
+    threads: 1
     run:
-        df = pd.merge(pd.read_csv(input.fa_val, sep='\t'), pd.read_csv(input.mo_val, sep='\t'), on='ID', suffixes=[f'_{wildcards.val_type}_fa', f'_{wildcards.val_type}_mo'])
+        df = pd.merge(
+            pd.read_csv(input.fa_val, sep="\t"),
+            pd.read_csv(input.mo_val, sep="\t"),
+            on="ID",
+            suffixes=[f"_{wildcards.val_type}_fa", f"_{wildcards.val_type}_mo"],
+        )
         # Swap validation structure
-        for parent in ['mo', 'fa']:
-            df[f'VAL_{wildcards.val_type}_{parent}'] = df[f'VAL_{wildcards.val_type}_{parent}'].replace({'VALID' : 'NOTVALID', 'NOTVALID' : 'VALID'})
-        df.to_csv(output.subseq, sep='\t', index=False)
-
-
-
+        val_columns = []
+        for parent in ["mo", "fa"]:
+            df[f"VAL_{wildcards.val_type}_{parent}"] = df[
+                f"VAL_{wildcards.val_type}_{parent}"
+            ].replace({"VALID": "NOTVALID", "NOTVALID": "VALID"})
+            val_columns.append(f"VAL_{wildcards.val_type}_{parent}")
+        df[["ID"] + val_columns].to_csv(output.subseq, sep="\t", index=False)

@@ -39,70 +39,74 @@ SET_DEF = {
     "sv1-2k": (1000, 2000, 200),
     "sv2-4k": (2000, 4000, 250),
     "sv4k-max": (4000, None, 300),
-    "indel20-50": (20, 50, 5)
-}   
-
-
-SET_DEF_INDEL = {
-    "indel20-50": (20, 50, 5)
+    "indel20-50": (20, 50, 5),
 }
+
+
+SET_DEF_INDEL = {"indel20-50": (20, 50, 5)}
+
 
 def get_aln_source(wildcards, alnsource_pattern_dict):
     """
     Get an alignment source (BAM, CRAM) for a sample.
     """
-    
+
     if wildcards.val_type not in alnsource_pattern_dict:
-        raise RuntimeError('Cannot find alignment source "{}" in alignment source pattern dictionary'.format(wildcards.val_type))
-    
+        raise RuntimeError(
+            'Cannot find alignment source "{}" in alignment source pattern dictionary'.format(
+                wildcards.val_type
+            )
+        )
+
     alnsource_pattern = alnsource_pattern_dict[wildcards.val_type]
-    
-    if '{sample}' not in alnsource_pattern:
-        raise RuntimeError('{{sample}} not in alignment source pattern: {}'.format(wildcards.val_type))
-    
+
+    if "{sample}" not in alnsource_pattern:
+        raise RuntimeError(
+            "{{sample}} not in alignment source pattern: {}".format(wildcards.val_type)
+        )
+
     return alnsource_pattern.format(sample=wildcards.parent)
+
 
 def get_variant_input(wildcards, bed_pattern, allow_missing=False):
     """
     Get an input file name if it exists.
     """
-    
-    if '{source}' not in bed_pattern:
-        raise RuntimeError('{source} not in BED pattern')
-    
-    if '{caller}' not in bed_pattern:
-        raise RuntimeError('{caller} not in BED pattern')
-    
-    if '{sample}' not in bed_pattern:
-        raise RuntimeError('{sample} not in BED pattern')
-    
-    if '{svtype}' not in bed_pattern:
-        raise RuntimeError('{svtype} not in BED pattern')
-    
+
+    if "{source}" not in bed_pattern:
+        raise RuntimeError("{source} not in BED pattern")
+
+    if "{caller}" not in bed_pattern:
+        raise RuntimeError("{caller} not in BED pattern")
+
+    if "{sample}" not in bed_pattern:
+        raise RuntimeError("{sample} not in BED pattern")
+
+    if "{svtype}" not in bed_pattern:
+        raise RuntimeError("{svtype} not in BED pattern")
+
     bed_file_name = bed_pattern.format(**wildcards)
-    
+
     if not os.path.isfile(bed_file_name):
         if allow_missing:
             return []
-        
-        raise RuntimeError('Missing BED file: {}'.format(bed_file_name))
-    
+
+        raise RuntimeError("Missing BED file: {}".format(bed_file_name))
+
     return bed_file_name
 
 
 def gather_setdef(wildcards):
-    if wildcards.vartype == 'indel':
+    if wildcards.vartype == "indel":
         return expand(
             "temp/tables/sample/{{sample}}/{{parent}}_{{val_type}}/{set_def}/{{vartype}}_{{svtype}}/{{parent}}_{{val_type}}.tsv.gz",
             set_def=SET_DEF_INDEL.keys(),
         )
     else:
-         return expand(
+        return expand(
             "temp/tables/sample/{{sample}}/{{parent}}_{{val_type}}/{set_def}/{{vartype}}_{{svtype}}/{{parent}}_{{val_type}}.tsv.gz",
             set_def=SET_DEF_SV.keys(),
         )
-
-
 
 
 def find_bed(wildcards):
@@ -115,14 +119,19 @@ def find_bed(wildcards):
 
 
 def subseq_father(wildcards):
-    father = samples_df.at[wildcards.sample, 'FA']
-    return expand("temp/tables/validation/{{sample}}/{parent}_{{val_type}}/{{vartype}}_{{svtype}}.tsv.gz", parent=father)[0]
+    father = samples_df.at[wildcards.sample, "FA"]
+    return expand(
+        "temp/tables/validation/{{sample}}/{parent}_{{val_type}}/{{vartype}}_{{svtype}}.tsv.gz",
+        parent=father,
+    )[0]
 
 
 def subseq_mother(wildcards):
-    mother = samples_df.at[wildcards.sample, 'MO']
-    return expand("temp/tables/validation/{{sample}}/{parent}_{{val_type}}/{{vartype}}_{{svtype}}.tsv.gz", parent=mother)[0]
-
+    mother = samples_df.at[wildcards.sample, "MO"]
+    return expand(
+        "temp/tables/validation/{{sample}}/{parent}_{{val_type}}/{{vartype}}_{{svtype}}.tsv.gz",
+        parent=mother,
+    )[0]
 
 
 def step_miner(len_list):
@@ -266,10 +275,10 @@ Validation functions.
 def validate_summary(df, strategy="size50_2_4"):
     """
     Run validation on. Generates a "VAL" colmun with:
-    * VALID: 
-    * NOTVALID: 
-    * NOCALL: 
-    * NODATA: 
+    * VALID:
+    * NOTVALID:
+    * NOCALL:
+    * NODATA:
     """
 
     # Get parameters
@@ -376,7 +385,7 @@ def get_lengths(fa_file):
 def get_len_list(window, aln_input, subseq_exe):
     """
     Get a list of alignment record lengths over a window.
-    
+
     :param window: Position string (chrom:pos-end). Coordinates are 1-based inclusive (not BED).
     :param aln_input: Alignment input as BAM or CRAM.
     :param subseq_exe: Path to subseq executable.
@@ -417,43 +426,90 @@ def determine_combined_set(wildcards):
 
 
 def combine_fasta(wildcards):
-    out_file = "temp/msa/{val_type}/{sample}/{ids}_{hap}.out.fa"
+    out_file = "temp/validation/ASM/{val_type}/{sample}/{vartype}_{svtype}/{ids}_{hap}.out.fa"
     sample = wildcards.sample
     return expand(
         out_file,
         ids=wildcards.ids,
-        sample=[wildcards.sample, samples_df.at[wildcards.sample, 'MO'], samples_df.at[wildcards.sample, 'FA']],
+        sample=[
+            wildcards.sample,
+            samples_df.at[wildcards.sample, "MO"],
+            samples_df.at[wildcards.sample, "FA"],
+        ],
         val_type=[wildcards.val_type],
         hap=["hap1", "hap2"],
+        vartype=[wildcards.vartype],
+        svtype=[wildcards.svtype]
     )
 
 
 def find_region(wildcards):
-    split_id = wildcards.ids.split('-')
-    start = max(0, int(split_id[1])-1000)
-    if 'INS' in wildcards.ids:
-        end = int(split_id[1])+1001
+    split_id = wildcards.ids.split("-")
+    start = max(0, int(split_id[1]) - 1000)
+    if "INS" in wildcards.ids:
+        end = int(split_id[1]) + 1001
     else:
-        end = int(split_id[1])+int(split_id[3])+1000
-    return f'{split_id[0]}:{start}-{end}'
+        end = int(split_id[1]) + int(split_id[3]) + 1000
+    return f"{split_id[0]}:{start}-{end}"
 
 
 def gather_callable_haps(wildcards):
-    return expand(rules.callable_bed.output.tab, sample=wildcards.sample, val_type=wildcards.val_type, hap=['hap1', 'hap2'], parents=[manifest_df.at[wildcards.sample, "MO"], manifest_df.at[wildcards.sample, "FA"]])
-
-
-def msa_parents(wildcards):
     return expand(
-            "temp/msa/{{val_type}}/{{ids}}/{parents}_{hap}_gap.bed",
-            hap=["hap1", "hap2"],
-            parents=[samples_df.at[wildcards.sample, 'MO'], samples_df.at[wildcards.sample, 'FA']],
-        )
+        rules.callable_bed.output.tab,
+        sample=wildcards.sample,
+        val_type=wildcards.val_type,
+        hap=["hap1", "hap2"],
+        parent=[
+            samples_df.at[wildcards.sample, "MO"],
+            samples_df.at[wildcards.sample, "FA"],
+        ],
+        vartype=wildcards.vartype,
+        svtype=wildcards.svtype,
+    )
+
+
+def find_callable(wildcards):
+    return config.get("CALLABLE")[wildcards.val_type]
+
 
 
 def find_ids(wildcards):
-    bed_df = pd.read_csv(samples_df.at[wildcards.sample, "BED"], sep='\t', index_col='ID')
-    return expand("temp/msa/{{val_type}}/{ids}/{{sample}}_{hap}_shared.bed", ids=bed_df.index, hap=['hap1', 'hap2'])
+    bed_df = pd.read_csv(
+        samples_df.at[wildcards.sample, "BED"], sep="\t", index_col="ID"
+    )
+    return expand(
+        "temp/validation/ASM/{{val_type}}/{{vartype}}_{{svtype}}/{ids}/{{sample}}_{hap}_shared.bed",
+        ids=bed_df.index,
+        hap=["hap1", "hap2"],
+    )
 
 
 def find_asm_aln(wildcards):
-    return config.get('ASM')[wildcards.val_type]
+    return config.get("ASM")[wildcards.val_type]
+
+
+def find_int(wildcards):
+    return expand(
+        config.get("SVPOP")[wildcards.val_type],
+        parent=[
+            samples_df.at[wildcards.sample, "MO"],
+            samples_df.at[wildcards.sample, "FA"],
+        ],
+        sample=wildcards.sample,
+    )
+
+
+def determine_input(wildcards):
+    val_files = []
+    val_methods = ["READS", "ASM", "SVPOP", "CALLABLE"]
+    vartype = config.get("VARTYPE", "sv")
+    svtype = config.get("SVTYPE", "insdel")
+    for val in val_methods:
+        try:
+            for val_type in config[val]:
+                val_files.append(
+                    f"temp/validation/{val}/{val_type}/{vartype}_{svtype}/{wildcards.sample}_raw.tsv"
+                )
+        except:
+            continue
+    return val_files
