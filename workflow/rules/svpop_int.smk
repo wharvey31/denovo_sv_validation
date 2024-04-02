@@ -10,7 +10,7 @@ rule int_check:
         hrs=24,
     threads: 1
     run:
-        val_dict = {"A": "VALID", "A,B": "NOTVALID"}
+        val_dict = {"A": "VALID", "AB": "NOTVALID"}
         val_df = pd.merge(
             pd.read_csv(
                 input.int_val[0], sep="\t", usecols=["ID_A", "SOURCE_SET"]
@@ -24,10 +24,10 @@ rule int_check:
         val_df = val_df.rename(columns={"ID_A": "ID"})
         all_df = pd.read_csv(input.bed, sep="\t").merge(val_df)
         val_df[f"SVPOP_{wildcards.val_type}_MO"] = val_df.apply(
-            lambda row: val_dict[row["SOURCE_SET_MO"]], axis=1
+            lambda row: val_dict[row["SOURCE_SET_MO"].replace(",", "")], axis=1
         )
         val_df[f"SVPOP_{wildcards.val_type}_FA"] = val_df.apply(
-            lambda row: val_dict[row["SOURCE_SET_FA"]], axis=1
+            lambda row: val_dict[row["SOURCE_SET_FA"].replace(",", "")], axis=1
         )
         val_df[
             ["ID", f"SVPOP_{wildcards.val_type}_MO", f"SVPOP_{wildcards.val_type}_FA"]

@@ -12,7 +12,7 @@ if __name__ == "__main__":
         if i == 0:
             df = pd.read_csv(file, sep="\t")
         else:
-            df = df.merge(pd.read_csv(file, sep="\t"))
+            df = df.merge(pd.read_csv(file, sep="\t"), how="outer")
 
     df["DNSVAL"] = df.apply(
         lambda row: "PASS"
@@ -21,7 +21,7 @@ if __name__ == "__main__":
         axis=1,
     )
 
-    df[["ID", "DNSVAL"]].merge(bed_df).to_csv(
+    df.loc[df['DNSVAL'] == "PASS"][["ID", "DNSVAL"]].merge(bed_df).to_csv(
         snakemake.output.val, sep="\t", index=False
     )
     df.to_csv(snakemake.output.all_calls, sep="\t", index=False)
