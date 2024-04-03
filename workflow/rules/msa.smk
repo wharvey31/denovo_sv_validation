@@ -1,5 +1,6 @@
-
-
+import os
+SNAKEMAKE_DIR = os.path.dirname(workflow.snakefile)
+MSA_DIR=os.path.dirname(SNAKEMAKE_DIR)
 
 rule extract_seq:
     input:
@@ -36,29 +37,38 @@ rule rename:
                     else:
                         outfile.write(line)
 
-
-rule clustalo:
+rule make_multi_fa:
     input:
         fa=combine_fasta,
     output:
-        clust="temp/validation/ASM/{val_type}/{sample}/clustalo/{vartype}_{svtype}/{ids}/clustal.out",
+        multi_fa="temp/validation/ASM/{val_type}/{sample}/decipher/{vartype}_{svtype}/{ids}/seq.fa",
     resources:
         mem=lambda wildcards, attempt : 4**attempt,
         hrs=24,
     threads: 1
     shell:
-        """
-        if [[ $( grep ">" {input.fa} | wc -l ) < 2 ]]; then
-            touch {output.clust}
-        else
-            cat {input.fa} | clustalo -i - -o {output.clust}
-        fi
-        """
+        "mkdir -p $( echo {output.multi_fa} | sed 's/seq.fa//' );"
+        "cat {input.fa} > {output.multi_fa} ;"
 
+
+rule decipher_msa:
+    input:
+        fa=rules.make_multi_fa.output.multi_fa,
+    output:
+        html_out="temp/validation/ASM/{val_type}/{sample}/decipher/{vartype}_{svtype}/{ids}/decipher.html",
+        aln_out="temp/validation/ASM/{val_type}/{sample}/decipher/{vartype}_{svtype}/{ids}/decipher.out",
+    resources:
+        mem=lambda wildcards, attempt : 4**attempt,
+        hrs=24,
+    threads: 1
+    conda:
+        '../envs/decipher_env.yaml'
+    script:
+        "../scripts/decipher.R"
 
 rule process_align:
     input:
-        clust=rules.clustalo.output.clust,
+        decipher=rules.decipher_msa.output.aln_out,
     output:
         bed="temp/validation/ASM/{val_type}/{vartype}_{svtype}/{ids}/{sample}_{hap}_gap.bed",
     resources:
@@ -67,7 +77,7 @@ rule process_align:
     threads: 1
     run:
         record_dict = {}
-        with open(input.clust) as handle:
+        with open(input.decipher) as handle:
             for record in SeqIO.parse(handle, "fasta"):
                 text = str(record.seq)
                 hap = record.id

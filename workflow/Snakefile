@@ -21,6 +21,7 @@ samples_df = pd.read_csv(
 )
 
 REF_FA = config["REF"]
+MSA_ALG = config.get("MSA_ALG", "mafft")
 
 
 include: "rules/common.smk"
@@ -35,6 +36,8 @@ val_methods = ["READS", "ASM", "SVPOP", "CALLABLE"]
 val_types = []
 
 for x in val_methods:
+    if x not in config:
+        continue
     for y in config[x]:
         val_types.append(y)
 

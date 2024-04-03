@@ -458,7 +458,7 @@ def gather_callable_haps(wildcards):
         rules.callable_bed.output.tab,
         sample=wildcards.sample,
         val_type=wildcards.val_type,
-        hap=["hap1", "hap2"],
+        hap=["h1", "h2"],
         parent=[
             samples_df.at[wildcards.sample, "MO"],
             samples_df.at[wildcards.sample, "FA"],
@@ -487,6 +487,15 @@ def find_ids(wildcards):
 def find_asm_aln(wildcards):
     return config.get("ASM")[wildcards.val_type]
 
+
+def find_aln_type(wildcards):
+    if MSA_ALG == "clustal":
+        return rules.clustalo.output.clust
+    elif MSA_ALG == "mafft":
+        return rules.mafft.output.clust
+    else:
+        print("Invalid MSA algorithm, must be either: clustal or mafft")
+        sys.exit(1)
 
 def find_int(wildcards):
     return expand(
