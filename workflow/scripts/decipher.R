@@ -1,3 +1,6 @@
+#!/bin/env Rscript
+
+
 suppressMessages(library(DECIPHER))
 
 sample <- snakemake@wildcards[['sample']]

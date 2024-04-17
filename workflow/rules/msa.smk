@@ -13,6 +13,8 @@ rule extract_seq:
         mem=4,
         hrs=24,
     threads: 1
+    singularity:
+        "docker://eichlerlab/subseqfa:1.0"
     shell:
         """
         subseqfa -r {params.region} {input.bam} > {output.fa}
