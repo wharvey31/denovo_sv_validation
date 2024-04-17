@@ -123,7 +123,10 @@ rule subseq_tab_window_single:
         mem=4,
         hrs=24,
     threads: 1
-    run:
+    singularity:
+        "docker://eichlerlab/subseqpy:1.0"
+    script:
+        "../scripts/subseq_subp.py"
 
 
 #
