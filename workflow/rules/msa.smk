@@ -39,23 +39,30 @@ rule rename:
                     else:
                         outfile.write(line)
 
-rule make_multi_fa:
+checkpoint make_multi_fa:
     input:
         fa=combine_fasta,
     output:
-        multi_fa="temp/validation/ASM/{val_type}/{sample}/decipher/{vartype}_{svtype}/{ids}/seq.fa",
+        multi_fa=touch("temp/validation/ASM/{val_type}/{sample}/{vartype}_{svtype}/{ids}/.done"),
     resources:
         mem=lambda wildcards, attempt : 4**attempt,
         hrs=24,
     threads: 1
     shell:
-        "mkdir -p $( echo {output.multi_fa} | sed 's/seq.fa//' );"
-        "cat {input.fa} > {output.multi_fa} ;"
-
+        """
+        OUTDIR=$( dirname {output.multi_fa} )
+        mkdir -p ${{OUTDIR}};
+        if [[ $( cat {input.fa} | grep '\>' | wc -l ) == 8 ]]; then 
+            cat {input.fa} > ${{OUTDIR}}/pass.fa ;
+        else
+            echo -e "#CHROM\\tPOS\\tEND\\tsample\\tovl" > ${{OUTDIR}}/fail.bed
+            echo -e "{ids}\\t0\\t0\\t{wildcards.sample}\\t-1" >> ${{OUTDIR}}/fail.bed
+        fi
+        """
 
 rule decipher_msa:
     input:
-        fa=rules.make_multi_fa.output.multi_fa,
+        fa="temp/validation/ASM/{val_type}/{sample}/{vartype}_{svtype}/{ids}/pass.fa",
     output:
         html_out="temp/validation/ASM/{val_type}/{sample}/decipher/{vartype}_{svtype}/{ids}/decipher.html",
         aln_out="temp/validation/ASM/{val_type}/{sample}/decipher/{vartype}_{svtype}/{ids}/decipher.out",
@@ -164,6 +171,7 @@ rule check_hap:
 
 rule combine_ids:
     input:
+        check_flag=find_flags,
         bed=find_ids,
         all_bed=find_bed,
     output:
