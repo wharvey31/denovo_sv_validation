@@ -471,17 +471,28 @@ def gather_callable_haps(wildcards):
 def find_callable(wildcards):
     return config.get("CALLABLE")[wildcards.val_type]
 
-
-
-def find_ids(wildcards):
+def find_flags(wildcards):
     bed_df = pd.read_csv(
         samples_df.at[wildcards.sample, "BED"], sep="\t", index_col="ID"
     )
-    return expand(
+    return expand("temp/validation/ASM/{{val_type}}/{{sample}}/{{vartype}}_{{svtype}}/{ids}/.done",ids=bed_df.index)
+
+
+def find_ids(wildcards):
+    fail_ids=glob_wildcards(os.path.join(f"temp/validation/ASM/{wildcards.val_type}/{wildcards.sample}/{wildcards.vartype}_{wildcards.svtype}","{ids}/fail.bed")).ids
+    pass_ids=glob_wildcards(os.path.join(f"temp/validation/ASM/{wildcards.val_type}/{wildcards.sample}/{wildcards.vartype}_{wildcards.svtype}","{ids}/pass.fa")).ids
+
+    pass_bed = expand(
         "temp/validation/ASM/{{val_type}}/{{vartype}}_{{svtype}}/{ids}/{{sample}}_{hap}_shared.bed",
-        ids=bed_df.index,
+        ids=pass_ids,
         hap=["hap1", "hap2"],
     )
+    fail_bed = expand(
+        "temp/validation/ASM/{{val_type}}/{{vartype}}_{{svtype}}/{ids}/fail.bed",
+        ids=fail_ids,
+        hap=["hap1", "hap2"],
+    )
+    return pass_bed + fail_bed
 
 
 def find_asm_aln(wildcards):
